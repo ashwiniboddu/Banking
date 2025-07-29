@@ -7,7 +7,7 @@ spec:
     storage: 5Gi
   accessModes:
     - ReadWriteOnce
-  PersistentVolumeReclaimPolicy: Retain
-  StorageClassName: manual
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
   hostPath:
     path: /mnt/data
