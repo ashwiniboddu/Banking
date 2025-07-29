@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: banking-svc
+  namespace: deployment
 spec:
   selector:
     app: banking
