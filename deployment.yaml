@@ -32,7 +32,7 @@ spec:
           volumeMounts:
             - name: banking-volume
               mountPath: /data
-          volumes:
+      volumes:
             - name: banking-volume
               persistentVolumeClaim:
                 claimName: banking-pvc
