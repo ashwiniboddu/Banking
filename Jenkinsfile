@@ -1,88 +1,55 @@
-
-pipeline {
+pipeline{
     agent any
 
-    tools{
-        jdk 'java s/w'
+    tools {
         maven 'maven s/w'
     }
+
     environment {
-        SCANNER_HOME = tool 'sonar-scanner'
-        GIT_REPO = "https://github.com/ashwiniboddu/Banking.git"
-        GIT_BRANCH = "main"
-        DOCKER_IMAGE = "ashwiniboddu/banking"
-        DOCKER_TAG = "${BUILD_NUMBER}"
-        DOCKERHUB_CREDENTIALS = "dockerhub-cred"
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+        DOCKER_IMAGE = "ashwiniboddu/banking:latest"
+        DOCKER_CREDENTIALS = 'dockerhub-cred'
     }
+
     stages {
-        stage ('Git_checkout') {
-          steps {
-            git branch: "${GIT_BRANCH}",
-            url: "${GIT_REPO}"
-          }
+        stage ('Git Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/ashwiniboddu/Banking.git'
+            }
         }
         stage ('Maven Build') {
             steps {
-                sh 'mvn clean package'
-            }
-        }
-        stage('Sonar Analysis') {
-            steps {
-                withSonarQubeEnv('sonar-server') {
-                    sh "$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Banking -Dsonar.projectKey=BankingKey -Dsonar.java.binaries=target"
-                }
-            }
-        }
-        stage("quality gate"){
-           steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
-                }
-            } 
-        }
-        stage('OWASP FS SCAN') {
-            steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-        stage('TRIVY FS SCAN') {
-            steps {
-                sh "trivy fs . > trivyfs.txt"
+                sh "mvn clean package"
             }
         }
         stage ('Build Docker Image') {
             steps {
-                script {
-                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
-                    echo "docker image built: ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                }
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
         stage ('Push Image to DockerHub') {
             steps {
                 script {
-                    //login to DockerHub
-                    docker.withRegistry('', DOCKERHUB_CREDENTIALS) {
-                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    docker.withRegistry('',DOCKER_CREDENTIALS) {
+                        sh "docker push ${DOCKER_IMAGE}"
                     }
                 }
             }
         }
-        stage("TRIVY Image Scan"){
-            steps{
-                sh "trivy image ${DOCKER_IMAGE}:${DOCKER_TAG} > trivy.txt" 
-            }
-        }
-        stage ('Deploy to Container') {
+        stage ('Deploy it in Kubernetes') {
             steps {
-                sh "docker run -d --name Banking -p 8081:8081 ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                sh '''
+                kubectl apply -f deployment.yaml
+                kubectl apply -f service.yaml
+                kubectl apply -f pv.yaml
+                kubectl apply -f pvc.yaml
+                '''
             }
         }
     }
     post {
         success {
-            echo "Deployment succesfully completed"
+            echo "Deployment successfully completed"
         }
         failure {
             echo "Deployment failed"
