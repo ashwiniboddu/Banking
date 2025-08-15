@@ -34,6 +34,6 @@ spec:
             - name: banking-volume
               mountPath: /data
       volumes:
-            - name: banking-volume
-              persistentVolumeClaim:
-                claimName: banking-pvc
+        - name: banking-volume
+          persistentVolumeClaim:
+            claimName: banking-pvc
